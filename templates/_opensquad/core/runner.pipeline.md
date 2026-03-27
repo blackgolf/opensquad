@@ -25,7 +25,7 @@ Before starting execution:
    c. If type: mcp, verify MCP is configured in `.claude/settings.local.json`
       - If missing → **ERROR**: "Skill '{skill}' MCP not configured. Reinstall the skill."
    All skills must resolve successfully before the pipeline starts (fail fast).
-4. **Load model tier config** (optional reference): Read `_opensquad/config.yaml` to understand the intended model tier for each agent type. This is informational — the Pipeline Runner does NOT use this config directly when dispatching. Individual steps declare their own `model_tier` in their frontmatter, set by the Architect at squad creation time.
+4. **Model tiers**: Individual steps declare their own `model_tier` in their frontmatter (`fast` or `powerful`), set by the Architect at squad creation time.
    - If the file exists: read and note the tier values for reference.
    - If the file doesn't exist: ignore silently — all steps default to `powerful` at dispatch.
 5. Inform the user that the squad is starting:
@@ -222,8 +222,26 @@ Apply this transformation consistently for every write in this step.
    }
    ```
 
-1. **Read the step file** completely: `squads/{name}/pipeline/steps/{step-file}.md`
-2. **Check execution mode** from the step's frontmatter:
+1. **Pre-Step Input Validation** — MANDATORY. If the step's frontmatter declares an `inputFile`, validate that the input exists before executing the step. Run via Bash tool:
+   ```bash
+   test -s "{transformed inputFile path}" && echo "VALIDATION:PASS" || echo "VALIDATION:FAIL"
+   ```
+   - Apply the Output Path Transformation (Step 1: run_id injection) to the `inputFile` path before running the check.
+   - If the Bash output contains `VALIDATION:PASS` → proceed to execute the step.
+   - If the Bash output contains `VALIDATION:FAIL` → do NOT execute the step. Present to user:
+     ```
+     ⚠️ Input for {Agent Name} not found: {path}
+     The previous step may have failed to produce output.
+
+     1. Skip step and continue
+     2. Abort pipeline
+     ```
+     Wait for user choice before proceeding. No retry — if the input doesn't exist, re-executing this step won't create it. The problem is upstream.
+   - If the step does not declare an `inputFile` → skip this validation entirely.
+   - Checkpoint steps (`type: checkpoint`) are exempt — they receive input from the user, not from files.
+
+2. **Read the step file** completely: `squads/{name}/pipeline/steps/{step-file}.md`
+3. **Check execution mode** from the step's frontmatter:
 
 #### If `execution: subagent`
 - Inform user: `🔍 {Agent Name} is working in the background...`
@@ -231,9 +249,7 @@ Apply this transformation consistently for every write in this step.
   Valid values: `fast` or `powerful`. If absent or any other value: default to `powerful`.
 - **Before building the subagent prompt**: Apply the Output Path Transformation (Step 1: run_id injection + Step 2: version folder) to all output paths referenced in the step file. Store the transformed path(s) in working memory — they will be used both in the prompt and in post-completion verification. Never pass raw paths from the step file to the subagent.
 - Use the Task tool to dispatch the step as a subagent:
-  - If `model_tier: fast`: use the fastest/lightest model available in the current environment.
-    You know your own environment — use the lightest model you can dispatch:
-    Claude Code → `model: haiku` | Antigravity → Gemini Flash | Codex → smallest available model
+  - If `model_tier: fast`: use the fastest/lightest model available in your current IDE.
   - If `model_tier: powerful` or absent/invalid: use the default model (no model override needed)
 - In the Task prompt, include:
   - The full agent persona from the party CSV
@@ -245,8 +261,8 @@ Apply this transformation consistently for every write in this step.
   - The squad memory
   - The **transformed** path to save output (e.g., `squads/{name}/output/2026-03-20-140736/slides/v1/draft.md`)
 - Wait for the subagent to complete
-- Read the output file to verify it was created — use the **stored transformed path**, not the raw step path
 - Inform user: `✓ {Agent Name} completed`
+- Proceed to Post-Step Output Validation (below) before advancing.
 
 #### If `execution: inline`
 - Switch to the agent's persona (read from party CSV)
@@ -254,6 +270,7 @@ Apply this transformation consistently for every write in this step.
 - Follow the step instructions
 - Present output directly in the conversation
 - Save output to the specified output file — apply the Output Path Transformation (Steps 1 and 2) to the path before writing. Do not write to the raw path from the step file.
+- Proceed to Post-Step Output Validation (below) before advancing.
 
 #### If `type: checkpoint`
 - Present the checkpoint message to the user
@@ -271,6 +288,38 @@ Apply this transformation consistently for every write in this step.
   **Date:** {today's date in YYYY-MM-DD format}
   ```
   This file is the `inputFile` for the researcher step that follows.
+
+### Post-Step Output Validation
+
+After a step produces output (subagent or inline) and BEFORE Veto Condition Enforcement, the runner MUST validate that the declared output files exist and are non-empty. This is a binary, non-negotiable gate — the runner does NOT proceed on memory or assumption, only on bash output.
+
+**If the step declares an `outputFile`** (single or multiple), run via Bash tool for EACH output file:
+
+```bash
+test -s "{transformed outputFile path}" && echo "VALIDATION:PASS" || echo "VALIDATION:FAIL"
+```
+
+Use the **stored transformed path** (after Output Path Transformation Steps 1 and 2), not the raw path from the step file.
+
+**Rules:**
+- If ALL output files return `VALIDATION:PASS` → proceed to Veto Condition Enforcement.
+- If ANY output file returns `VALIDATION:FAIL`:
+  1. **Retry once**: re-execute the entire step with the same input and context.
+  2. After re-execution, run the validation again for all output files.
+  3. If second attempt returns `VALIDATION:PASS` for all files → proceed normally.
+  4. If second attempt still has ANY `VALIDATION:FAIL` → present to user:
+     ```
+     ⚠️ {Agent Name}'s output was not generated: {path}
+
+     1. Retry step
+     2. Skip step and continue
+     3. Abort pipeline
+     ```
+     Wait for user choice before proceeding.
+- If the step does not declare an `outputFile` (e.g., steps that only produce inline console output) → skip output validation.
+- Checkpoint steps (`type: checkpoint`) are exempt — their output is the user's response, not a file.
+
+**IMPORTANT**: Do NOT rely on reading the file with the Read tool to "verify" output. The Read tool returns content that can be misinterpreted. Use ONLY the bash `test -s` command — its output is binary and cannot be hallucinated.
 
 ### Veto Condition Enforcement
 
@@ -328,6 +377,22 @@ After a step completes output and there IS a next step (MANDATORY):
    - Next agent: `"status": "working"`
    - Keep the `"handoff"` object from step 1 unchanged
    - `"updatedAt"`: now
+
+### Step Execution Order (Summary)
+
+For reference, the complete execution order for each pipeline step is:
+
+```
+0. Dashboard update (state.json)
+1. Pre-Step Input Validation (bash gate)
+2. Read step file
+3. Check execution mode and execute (subagent / inline / checkpoint)
+4. Post-Step Output Validation (bash gate)
+5. Veto Condition Enforcement
+6. Dashboard Handoff (to next step)
+```
+
+Steps 1 and 4 are binary bash gates. If either fails, the pipeline does NOT advance — the user is consulted.
 
 ### After Pipeline Completion
 
