@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import {
   CHARACTER_NAMES, avatarKeys, avatarPath,
-  DESK_KEYS, DESK_PATHS,
-  FURNITURE_KEYS, FURNITURE_PATHS,
+  DESK_PATHS,
+  FURNITURE_PATHS,
 } from './assetKeys';
-import { TILE, CELL_W, CELL_H, MARGIN, WALL_H } from './palette';
+import { CELL_W, CELL_H, MARGIN, WALL_H } from './palette';
 import { RoomBuilder } from './RoomBuilder';
 import { AgentSprite } from './AgentSprite';
 import type { SquadState, Agent } from '@/types/state';
@@ -21,7 +21,6 @@ const DEMO_AGENTS: Agent[] = [
 export class OfficeScene extends Phaser.Scene {
   private agentSprites: Map<string, AgentSprite> = new Map();
   private roomBuilder!: RoomBuilder;
-  private currentState: SquadState | null = null;
 
   constructor() {
     super({ key: 'OfficeScene' });
@@ -52,7 +51,6 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private onStateUpdate(state: SquadState | null): void {
-    this.currentState = state;
     const agents = state?.agents ?? DEMO_AGENTS;
     this.renderScene(agents);
   }
