@@ -1,21 +1,28 @@
 import Phaser from 'phaser';
 import {
-  CHARACTER_NAMES, avatarKeys, avatarPath,
+  CHARACTER_NAMES, MALE_CHARACTERS, FEMALE_CHARACTERS, avatarKeys, avatarPath,
   DESK_PATHS,
   FURNITURE_PATHS,
+  type CharacterName,
 } from './assetKeys';
 import { CELL_W, CELL_H, MARGIN, WALL_H } from './palette';
 import { RoomBuilder } from './RoomBuilder';
 import { AgentSprite } from './AgentSprite';
 import type { SquadState, Agent } from '@/types/state';
 
+function pickCharacter(agent: Agent): CharacterName {
+  const pool = agent.gender === 'male' ? MALE_CHARACTERS : FEMALE_CHARACTERS;
+  const hash = [...agent.id].reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return pool[hash % pool.length];
+}
+
 const DEMO_AGENTS: Agent[] = [
-  { id: '1', name: 'Researcher', icon: '', status: 'working', desk: { col: 1, row: 1 } },
-  { id: '2', name: 'Writer', icon: '', status: 'idle', desk: { col: 2, row: 1 } },
-  { id: '3', name: 'Editor', icon: '', status: 'done', desk: { col: 3, row: 1 } },
-  { id: '4', name: 'Designer', icon: '', status: 'working', desk: { col: 1, row: 2 } },
-  { id: '5', name: 'Reviewer', icon: '', status: 'checkpoint', desk: { col: 2, row: 2 } },
-  { id: '6', name: 'Publisher', icon: '', status: 'idle', desk: { col: 3, row: 2 } },
+  { id: '1', name: 'Researcher', icon: '', status: 'working', gender: 'female', desk: { col: 1, row: 1 } },
+  { id: '2', name: 'Writer', icon: '', status: 'idle', gender: 'male', desk: { col: 2, row: 1 } },
+  { id: '3', name: 'Editor', icon: '', status: 'done', gender: 'female', desk: { col: 3, row: 1 } },
+  { id: '4', name: 'Designer', icon: '', status: 'working', gender: 'female', desk: { col: 1, row: 2 } },
+  { id: '5', name: 'Reviewer', icon: '', status: 'checkpoint', gender: 'male', desk: { col: 2, row: 2 } },
+  { id: '6', name: 'Publisher', icon: '', status: 'idle', gender: 'male', desk: { col: 3, row: 2 } },
 ];
 
 export class OfficeScene extends Phaser.Scene {
@@ -107,7 +114,7 @@ export class OfficeScene extends Phaser.Scene {
       const agent = agents[i];
       const x = (agent.desk.col - 1) * cellW + MARGIN + cellW / 2;
       const y = (agent.desk.row - 1) * cellH + MARGIN + WALL_H + cellH / 2;
-      const characterName = CHARACTER_NAMES[i % CHARACTER_NAMES.length];
+      const characterName = pickCharacter(agent);
       const deskVariant = i % 2 === 0 ? 'black' : 'white';
       const agentSprite = new AgentSprite(this, x, y, characterName, deskVariant, agent);
       this.agentSprites.set(agent.id, agentSprite);
