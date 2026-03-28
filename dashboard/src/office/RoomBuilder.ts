@@ -114,13 +114,6 @@ export class RoomBuilder {
       .setOrigin(0.5, 1).setScale(1.3).setDepth(0);
 
     // ================================================================
-    // DESK AREA RUG — ornate accent under work zone
-    // ================================================================
-    const rugCenterY = (deskAreaTop + deskAreaBottom) / 2 - TILE;
-    s.add.image(centerX, rugCenterY, FURNITURE_KEYS.fancyRug)
-      .setOrigin(0.5, 0.5).setScale(0.65).setAlpha(0.6).setDepth(-0.5);
-
-    // ================================================================
     // CORNER PLANTS — one plant anchored to each room corner
     // ================================================================
     // Top-left corner
@@ -129,11 +122,25 @@ export class RoomBuilder {
 
     // Bottom-left corner
     s.add.image(MARGIN / 2, roomH - TILE * 0.5, FURNITURE_KEYS.plant3)
-      .setOrigin(0.5, 1).setDepth(roomH - TILE * 0.5);
+      .setOrigin(0.5, 1).setScale(1.8).setDepth(roomH - TILE * 0.5);
 
     // Bottom-right corner
     s.add.image(roomW - MARGIN / 2, roomH - TILE * 0.5, FURNITURE_KEYS.plantPoof)
-      .setOrigin(0.5, 1).setDepth(roomH - TILE * 0.5);
+      .setOrigin(0.5, 1).setScale(1.8).setDepth(roomH - TILE * 0.5);
+
+    // Upper-left and upper-right (upper vertical quarter)
+    const upperY = deskAreaTop + (deskAreaBottom - deskAreaTop) / 4;
+    s.add.image(MARGIN / 2, upperY, FURNITURE_KEYS.plantSpindly)
+      .setOrigin(0.5, 1).setScale(1.2).setDepth(upperY);
+    s.add.image(roomW - MARGIN / 2, upperY, FURNITURE_KEYS.plantSpindly)
+      .setOrigin(0.5, 1).setScale(1.2).setDepth(upperY);
+
+    // Middle-left and middle-right (vertical center)
+    const midY = WALL_H + (roomH - WALL_H) / 2;
+    s.add.image(MARGIN / 2, midY, FURNITURE_KEYS.monsteraSmall)
+      .setOrigin(0.5, 1).setScale(1.5).setDepth(midY);
+    s.add.image(roomW - MARGIN / 2, midY, FURNITURE_KEYS.plant1)
+      .setOrigin(0.5, 1).setScale(1.5).setDepth(midY);
 
     // ================================================================
     // DESK-AREA ACCENTS — flowers near wall, anchored to desk tops
@@ -172,8 +179,5 @@ export class RoomBuilder {
     s.add.image(centerX + 12, loungeY + TILE * 1.3, FURNITURE_KEYS.coffeeMugBlue)
       .setOrigin(0.5, 1).setDepth(loungeY + TILE * 1.5 + 1);
 
-    // Flowers near desks for warmth
-    s.add.image(roomW - MARGIN - TILE, deskAreaTop + TILE * 0.5, FURNITURE_KEYS.flowers1)
-      .setOrigin(0.5, 1).setDepth(deskAreaTop + TILE * 0.5);
   }
 }

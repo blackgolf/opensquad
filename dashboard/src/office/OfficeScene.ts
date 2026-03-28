@@ -10,12 +10,12 @@ import { AgentSprite } from './AgentSprite';
 import type { SquadState, Agent } from '@/types/state';
 
 const DEMO_AGENTS: Agent[] = [
-  { id: '1', name: 'Researcher', icon: '', status: 'working', deliverTo: null, desk: { col: 1, row: 1 } },
-  { id: '2', name: 'Writer', icon: '', status: 'idle', deliverTo: null, desk: { col: 2, row: 1 } },
-  { id: '3', name: 'Editor', icon: '', status: 'done', deliverTo: null, desk: { col: 3, row: 1 } },
-  { id: '4', name: 'Designer', icon: '', status: 'working', deliverTo: null, desk: { col: 1, row: 2 } },
-  { id: '5', name: 'Reviewer', icon: '', status: 'checkpoint', deliverTo: null, desk: { col: 2, row: 2 } },
-  { id: '6', name: 'Publisher', icon: '', status: 'idle', deliverTo: null, desk: { col: 3, row: 2 } },
+  { id: '1', name: 'Researcher', icon: '', status: 'working', desk: { col: 1, row: 1 } },
+  { id: '2', name: 'Writer', icon: '', status: 'idle', desk: { col: 2, row: 1 } },
+  { id: '3', name: 'Editor', icon: '', status: 'done', desk: { col: 3, row: 1 } },
+  { id: '4', name: 'Designer', icon: '', status: 'working', desk: { col: 1, row: 2 } },
+  { id: '5', name: 'Reviewer', icon: '', status: 'checkpoint', desk: { col: 2, row: 2 } },
+  { id: '6', name: 'Publisher', icon: '', status: 'idle', desk: { col: 3, row: 2 } },
 ];
 
 export class OfficeScene extends Phaser.Scene {

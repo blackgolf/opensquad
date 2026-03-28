@@ -183,7 +183,7 @@ export class AgentSprite {
     const dotColor = STATUS_COLORS[status] ?? COLORS.statusIdle;
     const textW = Math.max(this.statusText.width, 24);
     this.statusDot.fillStyle(dotColor, 1);
-    this.statusDot.fillCircle(x - textW / 2 - 5, statusY + 8, 3);
+    this.statusDot.fillCircle(x - textW / 2 - 5, this.statusText.y + this.statusText.height / 2, 3);
     this.statusDot.setDepth(901);
   }
 
@@ -251,7 +251,7 @@ export class AgentSprite {
     const textW = Math.max(this.statusText.width, 24);
     this.statusDot.fillCircle(
       this.statusText.x - textW / 2 - 5,
-      this.statusText.y + 8,
+      this.statusText.y + this.statusText.height / 2,
       3,
     );
   }
