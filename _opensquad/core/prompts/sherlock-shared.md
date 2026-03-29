@@ -8,6 +8,16 @@ When a user provides reference profile URLs during squad discovery ("follow the 
 
 The investigation output feeds directly into squad data files — making agents, frameworks, quality criteria, and voice guidance grounded in real high-performing content rather than generic best practices.
 
+## Session Management (ALWAYS inform the user)
+
+At the START of every investigation, before any browser action, tell the user:
+
+> "Your browser sessions are saved in `_opensquad/_browser_profile/`. To clear a platform's session, just delete the JSON file (e.g., `instagram.json`). I'll ask before saving any new session."
+
+This notice is mandatory for every investigation run, even if sessions already exist.
+
+---
+
 ## How It Works
 
 1. The Architect receives reference URLs from the user during Phase 1 Discovery (question 5)
@@ -135,15 +145,27 @@ On the first investigation for a given platform, Sherlock may encounter a login 
 
 1. Navigate to the platform URL
 2. Take a snapshot to detect login prompts or walls
-3. If a login wall is detected, inform the user: "I need you to log in to {platform} so I can access the content. I'll open the browser — please log in manually."
-4. Open the browser for manual login:
+3. If a login wall is detected, inform the user:
+   "I need you to log in to {platform} so I can access the content. I'll open the browser — log in, and come back here when you're done."
+
+4. **Step 1 — Open browser for login (NO session saving):**
+   ```bash
+   npx playwright open {platform-url}
+   ```
+   Use a **5-minute timeout** on this command. The user needs time to complete login + any verification (email, SMS, 2FA).
+
+5. Wait for the user to confirm login is complete in the terminal.
+
+6. **Step 2 — Save the session (quick — user is already logged in):**
+   Ask: "Want me to save this session for next time?"
+   If yes:
    ```bash
    npx playwright open --save-storage=_opensquad/_browser_profile/{platform}.json {platform-url}
    ```
-5. Wait for the user to confirm login is complete
-6. **Ask for consent before saving the session:** "Login successful! Do you want me to save this session for future investigations? Your cookies will be stored locally in `_opensquad/_browser_profile/{platform}.json`. If you say no, the session will only last for this investigation."
-7. If the user consents → the saved JSON file preserves the session cookies for future investigations
-8. If the user declines → after the investigation completes, inform the user: "Remember: your session cookies are still in `_opensquad/_browser_profile/`. Delete that folder to clear all saved sessions."
+   This command completes quickly since the browser already has the authenticated cookies.
+
+7. If the user declines saving, inform them:
+   "No problem. Remember your cookies are still in `_opensquad/_browser_profile/` — delete the folder to clear everything."
 
 ### Subsequent Runs
 
