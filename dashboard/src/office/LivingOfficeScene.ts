@@ -111,6 +111,7 @@ export class LivingOfficeScene extends Phaser.Scene {
   private activeHandoffKey: string | null = null;
   private handoffTrail?: Phaser.GameObjects.Graphics;
   private handoffMessage?: Phaser.GameObjects.Text;
+  private ackMessage?: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'OfficeScene' });
@@ -168,6 +169,15 @@ export class LivingOfficeScene extends Phaser.Scene {
       wordWrap: { width: 240, useAdvancedWrap: true },
       resolution: 2,
     }).setOrigin(0.5, 1).setDepth(990).setVisible(false);
+    this.ackMessage = this.add.text(0, 0, '', {
+      fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#dcfffb',
+      backgroundColor: '#103a38',
+      padding: { x: 8, y: 6 },
+      resolution: 2,
+    }).setOrigin(0.5, 1).setDepth(991).setVisible(false);
 
     this.events.on('stateUpdate', (payload: DashboardSceneState) => this.onStateUpdate(payload));
     this.onStateUpdate({ squadState: null, userProfile: null });
@@ -262,6 +272,15 @@ export class LivingOfficeScene extends Phaser.Scene {
       wordWrap: { width: 240, useAdvancedWrap: true },
       resolution: 2,
     }).setOrigin(0.5, 1).setDepth(990).setVisible(false);
+    this.ackMessage = this.add.text(0, 0, '', {
+      fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#dcfffb',
+      backgroundColor: '#103a38',
+      padding: { x: 8, y: 6 },
+      resolution: 2,
+    }).setOrigin(0.5, 1).setDepth(991).setVisible(false);
 
     this.syncUserAvatar();
 
@@ -380,6 +399,8 @@ export class LivingOfficeScene extends Phaser.Scene {
     this.showHandoffMessage(handoff.message, (fromAgent.currentX + toAgent.currentX) / 2, Math.min(fromAgent.currentY, toAgent.currentY) - 18);
 
     fromAgent.walkTo(meetingPoint, 900, () => {
+      toAgent.reactToHandoff();
+      this.showAckMessage(toAgent.currentX, toAgent.currentY - 86);
       this.tweens.add({
         targets: this.handoffTrail,
         alpha: { from: 1, to: 0.35 },
@@ -449,6 +470,33 @@ export class LivingOfficeScene extends Phaser.Scene {
         onComplete: () => this.handoffMessage?.setVisible(false),
       });
     }
+
+    if (this.ackMessage) {
+      this.tweens.add({
+        targets: this.ackMessage,
+        alpha: 0,
+        duration: 180,
+        onComplete: () => this.ackMessage?.setVisible(false),
+      });
+    }
+  }
+
+  private showAckMessage(x: number, y: number): void {
+    if (!this.ackMessage) return;
+
+    this.ackMessage
+      .setText('Recebido. Vou assumir daqui.')
+      .setPosition(x, y)
+      .setVisible(true)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: this.ackMessage,
+      alpha: 1,
+      y: y - 8,
+      duration: 180,
+      ease: 'Quad.easeOut',
+    });
   }
 
   private resolveAgentEntity(reference: string): AgentEntity | null {

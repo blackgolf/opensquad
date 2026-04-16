@@ -39,7 +39,9 @@ export class AgentEntity {
   private statusText: Phaser.GameObjects.Text;
   private animTimer?: Phaser.Time.TimerEvent;
   private returnTimer?: Phaser.Time.TimerEvent;
+  private emoteTimer?: Phaser.Time.TimerEvent;
   private moveTween?: Phaser.Tweens.Tween;
+  private emoteTween?: Phaser.Tweens.Tween;
   private agent: Agent;
   private characterName: CharacterName;
   private deskVariant: 'black' | 'white';
@@ -177,6 +179,38 @@ export class AgentEntity {
     this.walkTo(deskPoint, duration, onComplete);
   }
 
+  reactToHandoff(): void {
+    const keys = avatarKeys(this.characterName);
+    this.emoteTimer?.destroy();
+    this.emoteTween?.stop();
+
+    this.focusRing.clear();
+    this.focusRing.lineStyle(3, 0xffbb22, 0.95);
+    this.focusRing.fillStyle(0xffbb22, 0.18);
+    this.focusRing.fillEllipse(this.avatar.x, this.avatar.y + 18, 46, 18);
+    this.focusRing.strokeEllipse(this.avatar.x, this.avatar.y + 18, 46, 18);
+
+    this.setAvatarFrame(keys.wave1);
+    this.emoteTween = this.scene.tweens.add({
+      targets: this.avatar,
+      y: this.avatar.y - 6,
+      duration: 140,
+      yoyo: true,
+      repeat: 1,
+      ease: 'Quad.easeOut',
+      onUpdate: () => {
+        this.avatar.setDepth(this.avatar.y);
+        this.syncFloatingUi();
+      },
+    });
+
+    this.emoteTimer = this.scene.time.delayedCall(900, () => {
+      this.drawFocusRing();
+      this.setAvatarFrame(this.getAvatarKey(this.agent.status));
+      this.syncFloatingUi();
+    });
+  }
+
   private startIdleExcursion(target: Phaser.Math.Vector2): void {
     this.moveAvatarTo(target.x, target.y, 900, () => {
       this.returnTimer = this.scene.time.delayedCall(1400, () => {
@@ -303,7 +337,9 @@ export class AgentEntity {
   destroy(): void {
     this.animTimer?.destroy();
     this.returnTimer?.destroy();
+    this.emoteTimer?.destroy();
     this.moveTween?.stop();
+    this.emoteTween?.stop();
     this.focusRing.destroy();
     this.deskTable.destroy();
     this.deskShadow.destroy();
