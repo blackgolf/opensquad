@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
-import { OfficeScene } from './OfficeScene';
+import { LivingOfficeScene } from './LivingOfficeScene';
 import { useSquadStore } from '@/store/useSquadStore';
 
 export function PhaserGame() {
@@ -24,7 +24,7 @@ export function PhaserGame() {
       antialias: false,          // keep pixel art look for sprites
       roundPixels: true,         // snap sprites to whole pixels
       backgroundColor: '#1a1420',
-      scene: [OfficeScene],
+      scene: [LivingOfficeScene],
       scale: {
         mode: Phaser.Scale.NONE,
       },
@@ -55,7 +55,7 @@ export function PhaserGame() {
     return useSquadStore.subscribe((state) => {
       const game = gameRef.current;
       if (!game) return;
-      const scene = game.scene.getScene('OfficeScene') as OfficeScene | null;
+      const scene = game.scene.getScene('OfficeScene') as LivingOfficeScene | null;
       if (!scene || !scene.scene.isActive()) return;
 
       const selectedSquad = state.selectedSquad;
@@ -63,7 +63,10 @@ export function PhaserGame() {
         ? state.activeStates.get(selectedSquad) ?? null
         : null;
 
-      scene.events.emit('stateUpdate', squadState);
+      scene.events.emit('stateUpdate', {
+        squadState,
+        userProfile: state.userProfile,
+      });
     });
   }, []);
 

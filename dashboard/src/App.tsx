@@ -1,10 +1,14 @@
 import { useSquadSocket } from "@/hooks/useSquadSocket";
+import { AgentInspector } from "@/components/AgentInspector";
+import { PresenceOnboarding } from "@/components/PresenceOnboarding";
 import { SquadSelector } from "@/components/SquadSelector";
 import { PhaserGame } from "@/office/PhaserGame";
 import { StatusBar } from "@/components/StatusBar";
+import { useSquadStore } from "@/store/useSquadStore";
 
 export function App() {
   useSquadSocket();
+  const userProfile = useSquadStore((s) => s.userProfile);
 
   return (
     <div
@@ -36,7 +40,11 @@ export function App() {
       {/* Main content */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <SquadSelector />
-        <PhaserGame />
+        <div style={{ position: "relative", flex: 1, overflow: "hidden" }}>
+          <PhaserGame />
+          {!userProfile && <PresenceOnboarding />}
+        </div>
+        <AgentInspector />
       </div>
 
       {/* Footer */}

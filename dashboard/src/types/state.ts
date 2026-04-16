@@ -20,6 +20,12 @@ export interface Agent {
   desk: AgentDesk;
 }
 
+export interface UserProfile {
+  name: string;
+  avatar: string;
+  role: string;
+}
+
 export interface Handoff {
   from: string;
   to: string;
