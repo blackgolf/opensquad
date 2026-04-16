@@ -113,6 +113,7 @@ export class LivingOfficeScene extends Phaser.Scene {
   private handoffMessage?: Phaser.GameObjects.Text;
   private ackMessage?: Phaser.GameObjects.Text;
   private handoffToken?: Phaser.GameObjects.Graphics;
+  private idleMemory = new Map<string, string>();
 
   constructor() {
     super({ key: 'OfficeScene' });
@@ -249,7 +250,10 @@ export class LivingOfficeScene extends Phaser.Scene {
       const characterName = this.characterMap.get(agent.id)!;
       const deskVariant = index % 2 === 0 ? 'black' : 'white';
       const entity = new AgentEntity(this, x, y, characterName, deskVariant, agent);
-      entity.refreshBehavior(this.pickIdleTarget(index));
+      entity.refreshBehavior(
+        this.pickIdleTarget(index, agent.id),
+        () => this.pickIdleTarget(index, agent.id),
+      );
       this.agentSprites.set(agent.id, entity);
     });
 
@@ -305,7 +309,11 @@ export class LivingOfficeScene extends Phaser.Scene {
   private updateAgents(agents: Agent[]): void {
     agents.forEach((agent, index) => {
       const sprite = this.agentSprites.get(agent.id);
-      sprite?.updateAgent(agent, this.pickIdleTarget(index));
+      sprite?.updateAgent(
+        agent,
+        this.pickIdleTarget(index, agent.id),
+        () => this.pickIdleTarget(index, agent.id),
+      );
     });
   }
 
@@ -363,9 +371,28 @@ export class LivingOfficeScene extends Phaser.Scene {
     }
   }
 
-  private pickIdleTarget(index: number): Phaser.Math.Vector2 | undefined {
+  private pickIdleTarget(index: number, agentId: string): Phaser.Math.Vector2 | undefined {
     if (!this.layout) return undefined;
-    return this.layout.idlePoints[index % this.layout.idlePoints.length];
+
+    const options = [
+      { key: `water-${index % 2}`, point: this.layout.idlePoints[index % 2], weight: 4 },
+      { key: `lounge-${index % 2}`, point: this.layout.idlePoints[2 + (index % 2)], weight: 3 },
+      { key: 'coffee', point: this.layout.idlePoints[4], weight: 2 },
+    ];
+
+    const lastChoice = this.idleMemory.get(agentId);
+    const weightedPool: typeof options = [];
+
+    for (const option of options) {
+      const effectiveWeight = option.key === lastChoice ? 1 : option.weight;
+      for (let count = 0; count < effectiveWeight; count += 1) {
+        weightedPool.push(option);
+      }
+    }
+
+    const selected = weightedPool[Phaser.Math.Between(0, weightedPool.length - 1)] ?? options[0];
+    this.idleMemory.set(agentId, selected.key);
+    return selected.point;
   }
 
   private maybeTriggerHandoff(handoff: Handoff | null): void {

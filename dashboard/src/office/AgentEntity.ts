@@ -48,6 +48,7 @@ export class AgentEntity {
   private avatarDisplayH = 0;
   private isMoving = false;
   private nearby = false;
+  private idleTargetProvider?: () => Phaser.Math.Vector2 | undefined;
 
   constructor(
     scene: Phaser.Scene,
@@ -139,9 +140,14 @@ export class AgentEntity {
     this.syncFloatingUi();
   }
 
-  updateAgent(agent: Agent, idleTarget?: Phaser.Math.Vector2): void {
+  updateAgent(
+    agent: Agent,
+    idleTarget?: Phaser.Math.Vector2,
+    idleTargetProvider?: () => Phaser.Math.Vector2 | undefined,
+  ): void {
     const previousStatus = this.agent.status;
     this.agent = agent;
+    this.idleTargetProvider = idleTargetProvider ?? this.idleTargetProvider;
     this.nameText.setText(agent.name);
     this.statusText.setText(STATUS_LABELS[agent.status]);
     this.statusText.setColor(this.getStatusHexColor(agent.status));
@@ -153,14 +159,17 @@ export class AgentEntity {
     }
   }
 
-  refreshBehavior(idleTarget?: Phaser.Math.Vector2): void {
+  refreshBehavior(
+    idleTarget?: Phaser.Math.Vector2,
+    idleTargetProvider?: () => Phaser.Math.Vector2 | undefined,
+  ): void {
     this.moveTween?.stop();
     this.returnTimer?.destroy();
     this.isMoving = false;
+    this.idleTargetProvider = idleTargetProvider ?? this.idleTargetProvider;
 
     if (this.agent.status === 'idle' && idleTarget) {
-      const delay = Phaser.Math.Between(500, 1800);
-      this.returnTimer = this.scene.time.delayedCall(delay, () => this.startIdleExcursion(idleTarget));
+      this.scheduleIdleExcursion(idleTarget);
       return;
     }
 
@@ -214,9 +223,20 @@ export class AgentEntity {
   private startIdleExcursion(target: Phaser.Math.Vector2): void {
     this.moveAvatarTo(target.x, target.y, 900, () => {
       this.returnTimer = this.scene.time.delayedCall(1400, () => {
-        this.moveAvatarTo(this.deskX, this.deskY + DESK_AVATAR_OFFSET_Y, 850);
+        this.moveAvatarTo(this.deskX, this.deskY + DESK_AVATAR_OFFSET_Y, 850, () => {
+          if (this.agent.status !== 'idle') return;
+          const nextIdleTarget = this.idleTargetProvider?.();
+          if (nextIdleTarget) {
+            this.scheduleIdleExcursion(nextIdleTarget);
+          }
+        });
       });
     });
+  }
+
+  private scheduleIdleExcursion(target: Phaser.Math.Vector2): void {
+    const delay = Phaser.Math.Between(500, 1800);
+    this.returnTimer = this.scene.time.delayedCall(delay, () => this.startIdleExcursion(target));
   }
 
   private moveAvatarTo(x: number, y: number, duration: number, onComplete?: () => void): void {
