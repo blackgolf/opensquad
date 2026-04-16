@@ -112,6 +112,7 @@ export class LivingOfficeScene extends Phaser.Scene {
   private handoffTrail?: Phaser.GameObjects.Graphics;
   private handoffMessage?: Phaser.GameObjects.Text;
   private ackMessage?: Phaser.GameObjects.Text;
+  private handoffToken?: Phaser.GameObjects.Graphics;
 
   constructor() {
     super({ key: 'OfficeScene' });
@@ -178,6 +179,7 @@ export class LivingOfficeScene extends Phaser.Scene {
       padding: { x: 8, y: 6 },
       resolution: 2,
     }).setOrigin(0.5, 1).setDepth(991).setVisible(false);
+    this.handoffToken = this.add.graphics().setDepth(992).setVisible(false);
 
     this.events.on('stateUpdate', (payload: DashboardSceneState) => this.onStateUpdate(payload));
     this.onStateUpdate({ squadState: null, userProfile: null });
@@ -281,6 +283,7 @@ export class LivingOfficeScene extends Phaser.Scene {
       padding: { x: 8, y: 6 },
       resolution: 2,
     }).setOrigin(0.5, 1).setDepth(991).setVisible(false);
+    this.handoffToken = this.add.graphics().setDepth(992).setVisible(false);
 
     this.syncUserAvatar();
 
@@ -399,6 +402,7 @@ export class LivingOfficeScene extends Phaser.Scene {
       arrivals += 1;
       if (arrivals < 2) return;
 
+      this.animateHandoffToken(meeting.from, meeting.to);
       toAgent.reactToHandoff();
       this.showAckMessage(meeting.to.x, meeting.to.y - 72);
       this.tweens.add({
@@ -502,6 +506,8 @@ export class LivingOfficeScene extends Phaser.Scene {
         onComplete: () => this.ackMessage?.setVisible(false),
       });
     }
+
+    this.hideHandoffToken();
   }
 
   private showAckMessage(x: number, y: number): void {
@@ -519,6 +525,67 @@ export class LivingOfficeScene extends Phaser.Scene {
       y: y - 8,
       duration: 180,
       ease: 'Quad.easeOut',
+    });
+  }
+
+  private animateHandoffToken(from: Phaser.Math.Vector2, to: Phaser.Math.Vector2): void {
+    const token = this.handoffToken;
+    if (!token) return;
+
+    const proxy = { t: 0 };
+    token.setVisible(true);
+    token.setAlpha(1);
+
+    this.tweens.add({
+      targets: proxy,
+      t: 1,
+      duration: 320,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        const x = Phaser.Math.Linear(from.x, to.x, proxy.t);
+        const y = Phaser.Math.Linear(from.y - 10, to.y - 10, proxy.t) - Math.sin(proxy.t * Math.PI) * 14;
+        this.drawHandoffToken(x, y, proxy.t);
+      },
+      onComplete: () => {
+        this.tweens.add({
+          targets: token,
+          alpha: 0,
+          duration: 120,
+          onComplete: () => token.setVisible(false),
+        });
+      },
+    });
+  }
+
+  private drawHandoffToken(x: number, y: number, t: number): void {
+    const token = this.handoffToken;
+    if (!token) return;
+
+    token.clear();
+    token.fillStyle(0xfff3c4, 0.95);
+    token.lineStyle(2, 0xb67d14, 1);
+    token.fillRoundedRect(x - 10, y - 7, 20, 14, 3);
+    token.strokeRoundedRect(x - 10, y - 7, 20, 14, 3);
+
+    token.lineStyle(2, 0xd7a94d, 0.95);
+    token.beginPath();
+    token.moveTo(x - 10, y - 7);
+    token.lineTo(x, y + 1);
+    token.lineTo(x + 10, y - 7);
+    token.strokePath();
+
+    token.fillStyle(0xffd66f, 0.22 + t * 0.15);
+    token.fillCircle(x, y, 14);
+  }
+
+  private hideHandoffToken(): void {
+    if (!this.handoffToken) return;
+
+    this.tweens.add({
+      targets: this.handoffToken,
+      alpha: 0,
+      duration: 120,
+      onComplete: () => this.handoffToken?.setVisible(false),
     });
   }
 
