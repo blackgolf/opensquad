@@ -390,17 +390,17 @@ export class LivingOfficeScene extends Phaser.Scene {
   ): void {
     this.activeHandoffKey = handoffKey;
 
-    const meetingPoint = new Phaser.Math.Vector2(
-      toAgent.currentX - 42,
-      toAgent.currentY + 6,
-    );
-
     this.drawHandoffTrail(fromAgent.currentX, fromAgent.currentY, toAgent.currentX, toAgent.currentY);
     this.showHandoffMessage(handoff.message, (fromAgent.currentX + toAgent.currentX) / 2, Math.min(fromAgent.currentY, toAgent.currentY) - 18);
+    const meeting = this.computeMeetingPoints(fromAgent, toAgent);
 
-    fromAgent.walkTo(meetingPoint, 900, () => {
+    let arrivals = 0;
+    const onArrive = () => {
+      arrivals += 1;
+      if (arrivals < 2) return;
+
       toAgent.reactToHandoff();
-      this.showAckMessage(toAgent.currentX, toAgent.currentY - 86);
+      this.showAckMessage(meeting.to.x, meeting.to.y - 72);
       this.tweens.add({
         targets: this.handoffTrail,
         alpha: { from: 1, to: 0.35 },
@@ -410,12 +410,35 @@ export class LivingOfficeScene extends Phaser.Scene {
       });
 
       this.time.delayedCall(1200, () => {
-        fromAgent.returnToDesk(850, () => {
+        let returned = 0;
+        const onReturn = () => {
+          returned += 1;
+          if (returned < 2) return;
           this.hideHandoffVisuals();
           this.activeHandoffKey = null;
-        });
+        };
+
+        fromAgent.returnToDesk(850, onReturn);
+        toAgent.returnToDesk(760, onReturn);
       });
-    });
+    };
+
+    fromAgent.walkTo(meeting.from, 900, onArrive);
+    toAgent.walkTo(meeting.to, 760, onArrive);
+  }
+
+  private computeMeetingPoints(fromAgent: AgentEntity, toAgent: AgentEntity) {
+    const fromDesk = fromAgent.deskAvatarPoint;
+    const toDesk = toAgent.deskAvatarPoint;
+    const centerX = (fromDesk.x + toDesk.x) / 2;
+    const centerY = (fromDesk.y + toDesk.y) / 2 + 8;
+
+    const horizontalBias = fromDesk.x <= toDesk.x ? 34 : -34;
+
+    return {
+      from: new Phaser.Math.Vector2(centerX - horizontalBias, centerY),
+      to: new Phaser.Math.Vector2(centerX + horizontalBias, centerY),
+    };
   }
 
   private drawHandoffTrail(fromX: number, fromY: number, toX: number, toY: number): void {
