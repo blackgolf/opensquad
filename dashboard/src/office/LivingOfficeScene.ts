@@ -14,7 +14,7 @@ import { RoomBuilder } from './RoomBuilder';
 import { AgentEntity } from './AgentEntity';
 import { UserAvatar } from './UserAvatar';
 import { useSquadStore } from '@/store/useSquadStore';
-import type { Agent, SquadState, UserProfile } from '@/types/state';
+import type { Agent, Handoff, SquadState, UserProfile } from '@/types/state';
 
 type DashboardSceneState = {
   squadState: SquadState | null;
@@ -107,6 +107,10 @@ export class LivingOfficeScene extends Phaser.Scene {
   };
   private lastNearbyAgentId: string | null = null;
   private promptText?: Phaser.GameObjects.Text;
+  private lastHandoffKey: string | null = null;
+  private activeHandoffKey: string | null = null;
+  private handoffTrail?: Phaser.GameObjects.Graphics;
+  private handoffMessage?: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'OfficeScene' });
@@ -152,6 +156,18 @@ export class LivingOfficeScene extends Phaser.Scene {
       padding: { x: 10, y: 6 },
       resolution: 2,
     }).setOrigin(0.5, 1).setDepth(980).setVisible(false);
+    this.handoffTrail = this.add.graphics().setDepth(965);
+    this.handoffMessage = this.add.text(0, 0, '', {
+      fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+      fontSize: '13px',
+      fontStyle: 'bold',
+      color: '#fff7d6',
+      backgroundColor: '#432f17',
+      padding: { x: 10, y: 8 },
+      align: 'center',
+      wordWrap: { width: 240, useAdvancedWrap: true },
+      resolution: 2,
+    }).setOrigin(0.5, 1).setDepth(990).setVisible(false);
 
     this.events.on('stateUpdate', (payload: DashboardSceneState) => this.onStateUpdate(payload));
     this.onStateUpdate({ squadState: null, userProfile: null });
@@ -195,6 +211,7 @@ export class LivingOfficeScene extends Phaser.Scene {
       this.updateAgents(nextAgents);
     }
 
+    this.maybeTriggerHandoff(payload.squadState?.handoff ?? null);
     this.syncUserAvatar();
     this.syncNearbyAgent();
   }
@@ -233,6 +250,18 @@ export class LivingOfficeScene extends Phaser.Scene {
       padding: { x: 10, y: 6 },
       resolution: 2,
     }).setOrigin(0.5, 1).setDepth(980).setVisible(false);
+    this.handoffTrail = this.add.graphics().setDepth(965);
+    this.handoffMessage = this.add.text(0, 0, '', {
+      fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+      fontSize: '13px',
+      fontStyle: 'bold',
+      color: '#fff7d6',
+      backgroundColor: '#432f17',
+      padding: { x: 10, y: 8 },
+      align: 'center',
+      wordWrap: { width: 240, useAdvancedWrap: true },
+      resolution: 2,
+    }).setOrigin(0.5, 1).setDepth(990).setVisible(false);
 
     this.syncUserAvatar();
 
@@ -315,5 +344,126 @@ export class LivingOfficeScene extends Phaser.Scene {
   private pickIdleTarget(index: number): Phaser.Math.Vector2 | undefined {
     if (!this.layout) return undefined;
     return this.layout.idlePoints[index % this.layout.idlePoints.length];
+  }
+
+  private maybeTriggerHandoff(handoff: Handoff | null): void {
+    if (!handoff) {
+      this.lastHandoffKey = null;
+      return;
+    }
+
+    const nextKey = `${handoff.from}|${handoff.to}|${handoff.completedAt}|${handoff.message}`;
+    if (nextKey === this.lastHandoffKey || nextKey === this.activeHandoffKey) return;
+
+    this.lastHandoffKey = nextKey;
+    const fromAgent = this.resolveAgentEntity(handoff.from);
+    const toAgent = this.resolveAgentEntity(handoff.to);
+    if (!fromAgent || !toAgent) return;
+
+    this.playHandoffSequence(nextKey, handoff, fromAgent, toAgent);
+  }
+
+  private playHandoffSequence(
+    handoffKey: string,
+    handoff: Handoff,
+    fromAgent: AgentEntity,
+    toAgent: AgentEntity,
+  ): void {
+    this.activeHandoffKey = handoffKey;
+
+    const meetingPoint = new Phaser.Math.Vector2(
+      toAgent.currentX - 42,
+      toAgent.currentY + 6,
+    );
+
+    this.drawHandoffTrail(fromAgent.currentX, fromAgent.currentY, toAgent.currentX, toAgent.currentY);
+    this.showHandoffMessage(handoff.message, (fromAgent.currentX + toAgent.currentX) / 2, Math.min(fromAgent.currentY, toAgent.currentY) - 18);
+
+    fromAgent.walkTo(meetingPoint, 900, () => {
+      this.tweens.add({
+        targets: this.handoffTrail,
+        alpha: { from: 1, to: 0.35 },
+        duration: 280,
+        yoyo: true,
+        repeat: 2,
+      });
+
+      this.time.delayedCall(1200, () => {
+        fromAgent.returnToDesk(850, () => {
+          this.hideHandoffVisuals();
+          this.activeHandoffKey = null;
+        });
+      });
+    });
+  }
+
+  private drawHandoffTrail(fromX: number, fromY: number, toX: number, toY: number): void {
+    const trail = this.handoffTrail;
+    if (!trail) return;
+
+    trail.setAlpha(1);
+    trail.clear();
+    trail.lineStyle(4, 0xffbb22, 0.92);
+    trail.beginPath();
+    trail.moveTo(fromX, fromY + 8);
+    trail.lineTo(toX, toY + 8);
+    trail.strokePath();
+
+    trail.fillStyle(0xffe08a, 1);
+    trail.fillTriangle(toX + 10, toY + 8, toX - 8, toY + 2, toX - 8, toY + 14);
+  }
+
+  private showHandoffMessage(message: string, x: number, y: number): void {
+    if (!this.handoffMessage) return;
+
+    const clippedMessage = message.length > 120 ? `${message.slice(0, 117)}...` : message;
+    this.handoffMessage
+      .setText(`Handoff em curso\n${clippedMessage}`)
+      .setPosition(x, y)
+      .setVisible(true)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: this.handoffMessage,
+      alpha: 1,
+      duration: 220,
+      ease: 'Quad.easeOut',
+    });
+  }
+
+  private hideHandoffVisuals(): void {
+    if (this.handoffTrail) {
+      this.tweens.add({
+        targets: this.handoffTrail,
+        alpha: 0,
+        duration: 240,
+        onComplete: () => this.handoffTrail?.clear(),
+      });
+    }
+
+    if (this.handoffMessage) {
+      this.tweens.add({
+        targets: this.handoffMessage,
+        alpha: 0,
+        duration: 220,
+        onComplete: () => this.handoffMessage?.setVisible(false),
+      });
+    }
+  }
+
+  private resolveAgentEntity(reference: string): AgentEntity | null {
+    const directMatch = this.agentSprites.get(reference);
+    if (directMatch) return directMatch;
+
+    const normalizedReference = reference.trim().toLowerCase();
+    for (const sprite of this.agentSprites.values()) {
+      const squadAgent = this.squadState?.agents.find((agent) => agent.id === sprite.id);
+      if (!squadAgent) continue;
+      if (squadAgent.name.trim().toLowerCase() === normalizedReference) {
+        return sprite;
+      }
+    }
+
+    return null;
   }
 }

@@ -122,6 +122,10 @@ export class AgentEntity {
     return this.avatar.y;
   }
 
+  get deskAvatarPoint(): Phaser.Math.Vector2 {
+    return new Phaser.Math.Vector2(this.deskX, this.deskY + DESK_AVATAR_OFFSET_Y);
+  }
+
   containsPoint(x: number, y: number, maxDistance = 76): boolean {
     return Phaser.Math.Distance.Between(this.avatar.x, this.avatar.y, x, y) <= maxDistance;
   }
@@ -159,6 +163,18 @@ export class AgentEntity {
     }
 
     this.moveAvatarTo(this.deskX, this.deskY + DESK_AVATAR_OFFSET_Y, 420);
+  }
+
+  walkTo(target: Phaser.Math.Vector2, duration = 900, onComplete?: () => void): void {
+    this.moveTween?.stop();
+    this.returnTimer?.destroy();
+    this.isMoving = false;
+    this.moveAvatarTo(target.x, target.y, duration, onComplete);
+  }
+
+  returnToDesk(duration = 700, onComplete?: () => void): void {
+    const deskPoint = this.deskAvatarPoint;
+    this.walkTo(deskPoint, duration, onComplete);
   }
 
   private startIdleExcursion(target: Phaser.Math.Vector2): void {
